@@ -37,10 +37,17 @@ jobs:
           cd frontend
           npx cap sync
           
+      - name: Fix Line Endings (Windows Fix)
+        # This fixes the invisible "CRLF" characters from Windows
+        run: |
+          sudo apt-get install -y dos2unix
+          cd frontend/android
+          dos2unix gradlew
+          chmod +x gradlew
+          
       - name: Build APK
         run: |
           cd frontend/android
-          chmod +x gradlew
           ./gradlew assembleDebug
           
       - name: Upload APK
