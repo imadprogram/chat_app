@@ -1,0 +1,55 @@
+name: Build Android App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install Dependencies
+        # We install dependencies in the frontend folder
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Build React App
+        # We build the website version first
+        run: |
+          cd frontend
+          npm run build
+          
+      - name: Sync Capacitor
+        # We copy the website into the Android project
+        run: |
+          cd frontend
+          npx cap sync
+          
+      - name: Build APK
+        # We tell Gradle (Android's builder) to make the app
+        run: |
+          cd frontend/android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          
+      - name: Upload APK
+        # We save the result so you can download it
+        uses: actions/upload-artifact@v3
+        with:
+          name: chatverse-app
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk

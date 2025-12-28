@@ -14,7 +14,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    // We allow all origins because your frontend URL might change
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
@@ -23,7 +24,12 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ CONNECTED TO MONGODB"))
   .catch((err) => console.log("❌ DB CONNECTION ERROR:", err));
 
-// --- AUTH ROUTES ---
+// --- ROUTES ---
+
+app.get("/", (req, res) => {
+  res.send("ChatVerse Server is Running!");
+});
+
 app.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -44,60 +50,44 @@ app.post("/login", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- FRIEND ROUTES (NEW) ---
-
-// 1. Add a Friend
 app.post("/add-friend", async (req, res) => {
   try {
     const { myUsername, friendUsername } = req.body;
-    
-    // Find both users
     const me = await User.findOne({ username: myUsername });
     const friend = await User.findOne({ username: friendUsername });
-
     if (!friend) return res.status(404).json({ message: "User not found!" });
     if (me.username === friend.username) return res.status(400).json({ message: "You can't add yourself!" });
     if (me.friends.includes(friend.username)) return res.status(400).json({ message: "Already friends!" });
-
-    // Add to both lists (Mutual friendship)
+    
     me.friends.push(friend.username);
     friend.friends.push(me.username);
-
     await me.save();
     await friend.save();
-
     res.status(200).json({ message: "Friend added!", friend: friend.username });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 2. Get My Friend List
 app.get("/my-friends/:username", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     res.status(200).json(user.friends);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // --- SOCKETS ---
 io.on("connection", (socket) => {
-  // Join your own room so people can message you privately
+  console.log("User Connected", socket.id);
   socket.on("join_room", (username) => {
     socket.join(username);
   });
-
-  // Private Message Logic
   socket.on("send_message", (data) => {
-    // Send to the receiver's room
     io.to(data.room).emit("receive_message", data);
-    // Send back to sender so they see their own message
     socket.emit("receive_message", data);
   });
 });
 
-server.listen(5000, () => {
-  console.log("SERVER RUNNING on port 5000");
+// LISTEN (Updated for Hugging Face)
+const PORT = process.env.PORT || 7860;
+server.listen(PORT, () => {
+  console.log(`SERVER RUNNING on port ${PORT}`);
 });
